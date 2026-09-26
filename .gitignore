@@ -13,8 +13,6 @@ ENV/
 Thumbs.db
 
 /data/
-/logs/
-/output/
 
 *.pt
 *.pth
