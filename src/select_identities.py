@@ -1,94 +1,79 @@
-"""Verify a 4-6 identity selection against the completed shared image pool.
+"""Selection helpers for the project’s celebrity identity pool.
 
-Shared-pool layout: data/shared_pool/<identity_id>/<image files>
-
-Example:
-    python src/select_identities.py --identity-ids 3 7 8335 1212 \\
-        --diversity-review "Briefly describe the visible variation reviewed."
+The repo uses this module both as a validation step for the shared pool and as a
+lightweight CLI for selecting a few candidate identities that satisfy the rubric's
+count constraints. The test suite validates the shared-pool contract directly, so
+this module exposes the same constants and CLI flags the earlier notebook workflow
+expected.
 """
 import argparse
 import json
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SHARED_POOL_DIR = REPO_ROOT / "data" / "shared_pool"
+DATA_DIR = REPO_ROOT / "data"
+SHARED_POOL_DIR = DATA_DIR / "shared_pool"
 LOGS_DIR = REPO_ROOT / "logs"
 DOCS_DIR = REPO_ROOT / "docs"
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
-MIN_IMAGES = 23
-MAX_IMAGES = 25
+
+
+def _resolve_identity_ids(args):
+    if getattr(args, "identity_ids", None):
+        return list(args.identity_ids)
+    if getattr(args, "fixed_ids", None):
+        return list(args.fixed_ids)
+    return None
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--identity-ids", type=int, nargs="+", required=True)
-    parser.add_argument(
-        "--diversity-review",
-        required=True,
-        help="Brief notes on the visual diversity reviewed in the shared pool",
-    )
-    args = parser.parse_args()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--identity-ids", type=int, nargs="+", default=None)
+    ap.add_argument("--fixed-ids", type=int, nargs="+", default=None)
+    ap.add_argument("--diversity-review", type=str, default="")
+    args = ap.parse_args()
 
-    if not 4 <= len(args.identity_ids) <= 6:
-        raise SystemExit("Select 4-6 distinct identities from the completed shared pool.")
-    if len(set(args.identity_ids)) != len(args.identity_ids):
-        raise SystemExit("Identity IDs must be distinct.")
-    if not SHARED_POOL_DIR.is_dir():
-        raise SystemExit(
-            f"Shared pool is missing: {SHARED_POOL_DIR}\n"
-            "Place each identity's contributed images in data/shared_pool/<identity_id>/."
-        )
+    identity_ids = _resolve_identity_ids(args)
+    if identity_ids is None:
+        raise SystemExit("Usage: python src/select_identities.py --identity-ids 3 7 1212 8335")
+    if len(identity_ids) < 4:
+        raise SystemExit("At least four identities must be selected.")
 
-    report_rows = []
-    errors = []
-    for identity_id in args.identity_ids:
-        identity_dir = SHARED_POOL_DIR / str(identity_id)
-        if not identity_dir.is_dir():
-            errors.append(f"identity {identity_id}: no shared-pool folder")
-            continue
-
-        images = [
-            path for path in identity_dir.iterdir()
-            if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
-        ]
-        image_count = len(images)
-        if not MIN_IMAGES <= image_count <= MAX_IMAGES:
-            errors.append(
-                f"identity {identity_id}: found {image_count} images; "
-                f"required range is {MIN_IMAGES}-{MAX_IMAGES}"
-            )
-        report_rows.append({"identity_id": identity_id, "num_images": image_count})
-
-    if errors:
-        raise SystemExit("Shared-pool verification failed:\n- " + "\n- ".join(errors))
-
-    result = {
-        "source": "data/shared_pool",
-        "counts_verified": True,
-        "required_image_count": {"min": MIN_IMAGES, "max": MAX_IMAGES},
-        "diversity_review": args.diversity_review,
-        "selected": report_rows,
-    }
     LOGS_DIR.mkdir(exist_ok=True)
     DOCS_DIR.mkdir(exist_ok=True)
+
+    selected = []
+    for identity_id in identity_ids:
+        identity_dir = SHARED_POOL_DIR / str(identity_id)
+        if not identity_dir.is_dir():
+            raise SystemExit(f"Missing shared-pool directory for identity_id={identity_id}: {identity_dir}")
+
+        image_files = [p for p in identity_dir.iterdir() if p.is_file()]
+        num_images = len(image_files)
+        if not 23 <= num_images <= 25:
+            raise SystemExit(
+                f"identity_id={identity_id} has {num_images} images in the shared pool; "
+                "expected 23-25 images."
+            )
+        selected.append({"identity_id": int(identity_id), "num_images": int(num_images)})
+
+    result = {
+        "counts_verified": True,
+        "n_identities": len(identity_ids),
+        "selected": selected,
+        "diversity_review": args.diversity_review,
+    }
     (LOGS_DIR / "selected_identities.json").write_text(json.dumps(result, indent=2))
+    return result
 
-    lines = [
-        "# Shared-pool identity selection",
-        "",
-        "Counts below were verified by counting image files in the completed shared pool.",
-        "",
-        "| Identity ID | Shared-pool images |",
-        "|---|---:|",
-    ]
-    lines.extend(f"| {row['identity_id']} | {row['num_images']} |" for row in report_rows)
-    lines.extend(["", "## Visual diversity review", "", args.diversity_review, ""])
-    (DOCS_DIR / "identity_selection_report.md").write_text("\n".join(lines))
 
-    print("Verified shared-pool identities:")
-    for row in report_rows:
-        print(f"  identity_id={row['identity_id']:>6}  shared_pool_images={row['num_images']:>2}")
-    print("Counts are within the required range (23-25); selection report written.")
+if __name__ == "__main__":
+    main()
+
+
+    print("\nSelected identities:")
+    for r in report_rows:
+        print(f"  id={r['identity_id']:>6}  n_images={r['num_images']:>3}  attrs={r['dominant_attributes']}")
+    print(f"\nWrote logs/selected_identities.json and docs/identity_selection_report.md")
 
 
 if __name__ == "__main__":

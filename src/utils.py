@@ -1,168 +1,185 @@
-"""Utility helpers for training and evaluation."""
-
-from __future__ import annotations
-
+"""Shared training/eval/plotting helpers used by both training notebooks, so the
+custom CNN and the ResNet baseline are trained and measured identically (fair
+comparison for the Milestone 1 rubric)."""
 import json
-import random
 import time
 from pathlib import Path
-from typing import Any, Dict, List
 
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import torch.nn as nn
+from torch.utils.data import DataLoader
+
+try:
+    from sklearn.metrics import confusion_matrix, classification_report
+except ModuleNotFoundError:  # pragma: no cover - user may not have the optional eval dependency installed
+    confusion_matrix = None
+    classification_report = None
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LOGS_DIR = REPO_ROOT / "logs"
+LOGS_DIR.mkdir(exist_ok=True)
 
 
-def set_seed(seed: int = 42) -> None:
-    """Set all relevant random seeds for reproducibility."""
+def set_seed(seed: int = 42):
+    import random
+
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+    torch.cuda.manual_seed_all(seed)
 
 
 def get_device() -> torch.device:
-    """Return the best available device for training."""
-    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-def _accuracy(logits: torch.Tensor, targets: torch.Tensor) -> float:
-    predictions = logits.argmax(dim=1)
-    return float((predictions == targets).float().mean().item())
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    return torch.device("cpu")
 
 
 def train_model(
-    model: nn.Module,
-    train_loader,
-    val_loader,
+    model,
+    train_loader: DataLoader,
+    val_loader: DataLoader,
     epochs: int,
     lr: float,
     device: torch.device,
     run_name: str,
-    patience: int = 10,
-) -> tuple[List[Dict[str, float]], float, float]:
-    """Train a classification model and save best checkpoint/history.
+    weight_decay: float = 1e-4,
+    patience: int = 5,
+):
+    """Standard train/val loop with early stopping on val accuracy. Returns history
+    dict and total wall-clock training time in seconds (for the comparison table)."""
+    model.to(device)
+    optimizer = torch.optim.Adam(
+        filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=weight_decay
+    )
+    criterion = torch.nn.CrossEntropyLoss()
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", patience=2, factor=0.5)
 
-    Returns a history list, training wall-clock time in seconds, and the best validation accuracy.
-    """
-    model = model.to(device)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+    history = {"train_loss": [], "val_loss": [], "train_acc": [], "val_acc": []}
+    best_val_acc, best_state, epochs_no_improve = 0.0, None, 0
 
-    LOGS_DIR.mkdir(parents=True, exist_ok=True)
-
-    best_val_acc = -1.0
-    best_epoch = 0
-    best_state = None
-    history: List[Dict[str, float]] = []
-
-    start_time = time.time()
+    start = time.time()
     for epoch in range(1, epochs + 1):
         model.train()
-        train_loss_total = 0.0
-        train_correct = 0
-        train_seen = 0
-
-        for inputs, targets in train_loader:
-            inputs = inputs.to(device)
-            targets = targets.to(device)
-
+        running_loss, correct, total = 0.0, 0, 0
+        for x, y in train_loader:
+            x, y = x.to(device), y.to(device)
             optimizer.zero_grad()
-            logits = model(inputs)
-            loss = criterion(logits, targets)
+            out = model(x)
+            loss = criterion(out, y)
             loss.backward()
             optimizer.step()
-
-            batch_size = inputs.size(0)
-            train_loss_total += loss.item() * batch_size
-            train_correct += (logits.argmax(dim=1) == targets).sum().item()
-            train_seen += batch_size
-
-        train_loss = train_loss_total / max(train_seen, 1)
-        train_acc = train_correct / max(train_seen, 1)
+            running_loss += loss.item() * x.size(0)
+            correct += (out.argmax(1) == y).sum().item()
+            total += x.size(0)
+        train_loss, train_acc = running_loss / total, correct / total
 
         model.eval()
-        val_loss_total = 0.0
-        val_correct = 0
-        val_seen = 0
+        v_loss, v_correct, v_total = 0.0, 0, 0
         with torch.no_grad():
-            for inputs, targets in val_loader:
-                inputs = inputs.to(device)
-                targets = targets.to(device)
-                logits = model(inputs)
-                loss = criterion(logits, targets)
+            for x, y in val_loader:
+                x, y = x.to(device), y.to(device)
+                out = model(x)
+                loss = criterion(out, y)
+                v_loss += loss.item() * x.size(0)
+                v_correct += (out.argmax(1) == y).sum().item()
+                v_total += x.size(0)
+        val_loss, val_acc = v_loss / v_total, v_correct / v_total
+        scheduler.step(val_acc)
 
-                batch_size = inputs.size(0)
-                val_loss_total += loss.item() * batch_size
-                val_correct += (logits.argmax(dim=1) == targets).sum().item()
-                val_seen += batch_size
-
-        val_loss = val_loss_total / max(val_seen, 1)
-        val_acc = val_correct / max(val_seen, 1)
-
-        epoch_entry = {
-            "epoch": epoch,
-            "train_loss": train_loss,
-            "train_acc": train_acc,
-            "val_loss": val_loss,
-            "val_acc": val_acc,
-        }
-        history.append(epoch_entry)
+        history["train_loss"].append(train_loss)
+        history["val_loss"].append(val_loss)
+        history["train_acc"].append(train_acc)
+        history["val_acc"].append(val_acc)
+        print(
+            f"[{run_name}] epoch {epoch:>2}/{epochs}  "
+            f"train_loss={train_loss:.4f} train_acc={train_acc:.3f}  "
+            f"val_loss={val_loss:.4f} val_acc={val_acc:.3f}"
+        )
 
         if val_acc > best_val_acc:
-            best_val_acc = val_acc
-            best_epoch = epoch
-            best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
+            best_val_acc, best_state, epochs_no_improve = val_acc, {k: v.cpu().clone() for k, v in model.state_dict().items()}, 0
+        else:
+            epochs_no_improve += 1
+            if epochs_no_improve >= patience:
+                print(f"[{run_name}] early stopping at epoch {epoch} (best val_acc={best_val_acc:.3f})")
+                break
 
-        if epoch - best_epoch >= patience:
-            break
-
-        model.train()
-
+    train_time_sec = time.time() - start
     if best_state is not None:
         model.load_state_dict(best_state)
-        checkpoint = {"state_dict": best_state, "best_val_acc": best_val_acc, "history": history}
-    else:
-        checkpoint = {"state_dict": model.state_dict(), "best_val_acc": best_val_acc, "history": history}
 
-    checkpoint_path = LOGS_DIR / f"{run_name}_best.pt"
-    torch.save(checkpoint, checkpoint_path)
+    torch.save(model.state_dict(), LOGS_DIR / f"{run_name}_best.pt")
+    with open(LOGS_DIR / f"{run_name}_history.json", "w") as f:
+        json.dump({"history": history, "train_time_sec": train_time_sec, "best_val_acc": best_val_acc}, f, indent=2)
 
-    history_path = LOGS_DIR / f"{run_name}_history.json"
-    history_path.write_text(json.dumps(history, indent=2), encoding="utf-8")
+    plot_curves(history, run_name)
+    return history, train_time_sec, best_val_acc
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-    epochs_plot = [item["epoch"] for item in history]
-    train_loss = [item["train_loss"] for item in history]
-    val_loss = [item["val_loss"] for item in history]
-    train_acc = [item["train_acc"] for item in history]
-    val_acc = [item["val_acc"] for item in history]
 
-    axes[0].plot(epochs_plot, train_loss, label="train")
-    axes[0].plot(epochs_plot, val_loss, label="val")
-    axes[0].set_title("Loss")
-    axes[0].set_xlabel("Epoch")
-    axes[0].set_ylabel("Loss")
+def plot_curves(history: dict, run_name: str):
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    axes[0].plot(history["train_loss"], label="train")
+    axes[0].plot(history["val_loss"], label="val")
+    axes[0].set_title(f"{run_name} — loss")
+    axes[0].set_xlabel("epoch")
     axes[0].legend()
 
-    axes[1].plot(epochs_plot, train_acc, label="train")
-    axes[1].plot(epochs_plot, val_acc, label="val")
-    axes[1].set_title("Accuracy")
-    axes[1].set_xlabel("Epoch")
-    axes[1].set_ylabel("Accuracy")
+    axes[1].plot(history["train_acc"], label="train")
+    axes[1].plot(history["val_acc"], label="val")
+    axes[1].set_title(f"{run_name} — accuracy")
+    axes[1].set_xlabel("epoch")
     axes[1].legend()
 
     fig.tight_layout()
-    fig.savefig(LOGS_DIR / f"{run_name}_training_curves.png", dpi=200)
+    fig.savefig(LOGS_DIR / f"{run_name}_curves.png", dpi=150)
     plt.close(fig)
 
-    return history, time.time() - start_time, best_val_acc
+
+@torch.no_grad()
+def evaluate(model, loader: DataLoader, device: torch.device, class_names=None):
+    if confusion_matrix is None or classification_report is None:
+        raise ModuleNotFoundError(
+            "scikit-learn is required for evaluation metrics. Install it with `pip install scikit-learn`."
+        )
+
+    model.eval()
+    model.to(device)
+    all_preds, all_labels = [], []
+    for x, y in loader:
+        x = x.to(device)
+        out = model(x)
+        preds = out.argmax(1).cpu().numpy()
+        all_preds.extend(preds.tolist())
+        all_labels.extend(y.numpy().tolist())
+
+    acc = float(np.mean(np.array(all_preds) == np.array(all_labels)))
+    cm = confusion_matrix(all_labels, all_preds)
+    report = classification_report(all_labels, all_preds, target_names=class_names, output_dict=True)
+    return {"accuracy": acc, "confusion_matrix": cm, "report": report, "preds": all_preds, "labels": all_labels}
+
+
+def plot_confusion_matrix(cm, class_names, run_name: str):
+    fig, ax = plt.subplots(figsize=(5, 5))
+    im = ax.imshow(cm, cmap="Blues")
+    ax.set_xticks(range(len(class_names)))
+    ax.set_yticks(range(len(class_names)))
+    ax.set_xticklabels(class_names, rotation=45, ha="right")
+    ax.set_yticklabels(class_names)
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("True")
+    ax.set_title(f"{run_name} — confusion matrix (test)")
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            ax.text(j, i, str(cm[i, j]), ha="center", va="center",
+                     color="white" if cm[i, j] > cm.max() / 2 else "black")
+    fig.colorbar(im)
+    fig.tight_layout()
+    fig.savefig(LOGS_DIR / f"{run_name}_confusion_matrix.png", dpi=150)
+    plt.close(fig)
+
+
+def model_size_mb(model) -> float:
+    n_params = sum(p.numel() for p in model.parameters())
+    return n_params * 4 / (1024 ** 2)  # float32 assumption

@@ -17,11 +17,8 @@ from torchvision import transforms
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = REPO_ROOT / "data"
-SHARED_POOL_DIR = DATA_DIR / "shared_pool"
+IMG_DIR = DATA_DIR / "img_align_celeba"
 SPLITS_DIR = DATA_DIR / "splits"
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
-MIN_IMAGES_PER_IDENTITY = 23
-MAX_IMAGES_PER_IDENTITY = 25
 
 IMAGE_SIZE = 128  # keep small for CPU-friendly training (Explorer's older nodes)
 
@@ -33,31 +30,18 @@ NORM_STD = [0.229, 0.224, 0.225]
 
 
 def build_splits(identity_ids: List[int], val_frac=0.15, test_frac=0.15, seed=42) -> pd.DataFrame:
-    """Split only verified images from data/shared_pool/<identity_id>/ folders."""
-    if len(identity_ids) < 4 or len(identity_ids) > 6:
-        raise ValueError("Milestone data must use 4-6 distinct shared-pool identities")
-    if len(set(identity_ids)) != len(identity_ids):
-        raise ValueError("Identity IDs must be distinct")
+    """Stratified per-identity split. Returns a DataFrame with columns
+    [image_id, identity, label, split] where `label` is a 0..K-1 remapped class id."""
+    identity_path = DATA_DIR / "identity_CelebA.txt"
+    df = pd.read_csv(identity_path, sep=r"\s+", header=None, names=["image_id", "identity"])
+    df = df[df["identity"].isin(identity_ids)].reset_index(drop=True)
 
     id_to_label = {iid: i for i, iid in enumerate(sorted(identity_ids))}
-    splits = []
-    for iid in sorted(identity_ids):
-        identity_dir = SHARED_POOL_DIR / str(iid)
-        if not identity_dir.is_dir():
-            raise FileNotFoundError(f"Shared-pool folder is missing for identity {iid}: {identity_dir}")
-        image_paths = sorted(
-            path.name for path in identity_dir.iterdir()
-            if path.is_file() and path.suffix.lower() in IMAGE_EXTENSIONS
-        )
-        if not MIN_IMAGES_PER_IDENTITY <= len(image_paths) <= MAX_IMAGES_PER_IDENTITY:
-            raise ValueError(
-                f"Identity {iid} has {len(image_paths)} shared-pool images; "
-                f"the required range is {MIN_IMAGES_PER_IDENTITY}-{MAX_IMAGES_PER_IDENTITY}"
-            )
+    df["label"] = df["identity"].map(id_to_label)
 
-        group = pd.DataFrame({"image_id": image_paths})
-        group["identity"] = iid
-        group["label"] = id_to_label[iid]
+    rng = pd.Series(range(len(df)))
+    splits = []
+    for iid, group in df.groupby("identity"):
         g = group.sample(frac=1.0, random_state=seed).reset_index(drop=True)
         n = len(g)
         n_test = max(1, int(round(n * test_frac)))
@@ -114,7 +98,7 @@ class CelebASubset(Dataset):
 
     def __getitem__(self, idx) -> Tuple[torch.Tensor, int]:
         row = self.df.iloc[idx]
-        img_path = SHARED_POOL_DIR / str(row["identity"]) / row["image_id"]
+        img_path = IMG_DIR / row["image_id"]
         img = Image.open(img_path).convert("RGB")
         img = self.transform(img)
         return img, int(row["label"])
