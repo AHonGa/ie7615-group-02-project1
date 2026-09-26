@@ -34,6 +34,19 @@ def main():
     if rows.empty:
         raise SystemExit(f"No images found for identity_id={identity_id}. Check the ID is correct.")
 
+    if not 23 <= len(rows) <= 25:
+        raise SystemExit(
+            f"identity_id={identity_id} has {len(rows)} metadata entries; "
+            "only identities with 23-25 images may be claimed."
+        )
+
+    missing_images = [image_id for image_id in rows["image_id"] if not (IMG_DIR / image_id).is_file()]
+    if missing_images:
+        raise SystemExit(
+            f"identity_id={identity_id} has {len(missing_images)} missing source image files; "
+            "run the count verifier against a complete CelebA image archive before claiming it."
+        )
+
     out_dir = OUT_ROOT / str(identity_id)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -41,9 +54,6 @@ def main():
     for image_id in rows["image_id"]:
         src = IMG_DIR / image_id
         dst = out_dir / image_id
-        if not src.exists():
-            print(f"  [warn] missing source image: {src}")
-            continue
         shutil.copy2(src, dst)
         copied += 1
 
