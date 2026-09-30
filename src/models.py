@@ -9,7 +9,7 @@ class CustomCNN(nn.Module):
     """4-block CNN with batchnorm + dropout, designed for 128x128 RGB face crops
     and a small number of classes (4-6 identities)."""
 
-    def __init__(self, num_classes: int, dropout: float = 0.4):
+    def __init__(self, num_classes: int, dropout: float = 0.3):
         super().__init__()
 
         def block(in_ch, out_ch):

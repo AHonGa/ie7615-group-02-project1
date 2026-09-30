@@ -1,0 +1,40 @@
+{
+  "n_identities": 4,
+  "min_images": 30,
+  "max_images": 45,
+  "seed": 42,
+  "selected": [
+    {
+      "identity_id": 3,
+      "num_images": 25,
+      "dominant_attributes": [
+        "Male",
+        "Wearing_Hat"
+      ]
+    },
+    {
+      "identity_id": 7,
+      "num_images": 24,
+      "dominant_attributes": [
+        "Male",
+        "Black_Hair"
+      ]
+    },
+    {
+      "identity_id": 1212,
+      "num_images": 25,
+      "dominant_attributes": [
+        "Male",
+        "Black_Hair"
+      ]
+    },
+    {
+      "identity_id": 8335,
+      "num_images": 25,
+      "dominant_attributes": [
+        "Male",
+        "Brown_Hair"
+      ]
+    }
+  ]
+}
