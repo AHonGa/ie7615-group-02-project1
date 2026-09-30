@@ -68,13 +68,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-    print("\nSelected identities:")
-    for r in report_rows:
-        print(f"  id={r['identity_id']:>6}  n_images={r['num_images']:>3}  attrs={r['dominant_attributes']}")
-    print(f"\nWrote logs/selected_identities.json and docs/identity_selection_report.md")
-
-
-if __name__ == "__main__":
-    main()

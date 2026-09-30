@@ -1,5 +1,7 @@
 ipykernel
 matplotlib
+numpy
+opencv-python-headless>=4.11,<5
 pandas
 Pillow
 scikit-learn
