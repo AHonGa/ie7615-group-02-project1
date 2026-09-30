@@ -98,6 +98,25 @@ see `logs/selected_identities.json` and `docs/proposal.md` for the full rational
 | 1212        | 25       | Samuel Tong    | Male, Black_Hair    |
 | 8335        | 25       | Tristan Lyons  | Male, Brown_Hair    |
 
+## YOLOv8 transfer learning and evaluation
+
+Fine-tune a pretrained YOLOv8 nano checkpoint on the synthetic multi-identity dataset:
+
+```bash
+python src/train_yolo_detector.py
+```
+
+The trainer starts from `yolov8n.pt` (downloaded by Ultralytics if needed), trains for up to
+300 epochs, and stops early after 30 epochs without validation improvement. It selects the
+best validation checkpoint and evaluates it on the held-out `test` split. Ultralytics writes
+the training loss/metric curves to `runs/detect/celeba_yolov8n/results.png`, epoch-level
+values to `results.csv`, and test evaluation artifacts to a sibling `celeba_yolov8n_test`
+run. The script also saves test metrics as `test_metrics.json` beside the best checkpoint.
+Use `--epochs`, `--patience`, `--batch`, `--imgsz`, `--device`, or `--data` to adjust the run.
+
+The ResNet18 result below is the Milestone 1 image-classification baseline; YOLOv8 is the
+transfer-learning model for the Milestone 2 multi-face detection task.
+
 ## Best model
 
 **ResNet18 (fine-tuned)** — 93.75% test accuracy, vs. 68.75% for the custom CNN, on the

@@ -5,3 +5,4 @@ Pillow
 scikit-learn
 torch
 torchvision
+ultralytics>=8.2,<9
