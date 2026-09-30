@@ -14,6 +14,10 @@ Run this after downloading CelebA into data/ (see README "Data setup").
 Usage:
     python src/select_identities.py --n-identities 5 --min-images 30
 
+    # Or, to use a fixed, pre-decided list of identity IDs (e.g. IDs the group
+    # members individually claimed) instead of running the diversity search:
+    python src/select_identities.py --fixed-ids 3 7 1212 8335
+
 Output:
     - prints the chosen identity IDs + rationale
     - writes logs/selected_identities.json for the other notebooks to consume
@@ -54,8 +58,19 @@ def load_identity_map(path: Path) -> pd.DataFrame:
 
 
 def load_attrs(path: Path) -> pd.DataFrame:
-    # list_attr_celeba.txt: line 1 = image count, line 2 = attribute names, then data
-    df = pd.read_csv(path, sep=r"\s+", header=1, index_col=0)
+    """Handles both the original CelebA format (line 1 = image count, line 2 =
+    space-separated attribute names, then data) and the comma-separated format
+    used by some Kaggle mirrors (header on line 1, no count line)."""
+    with open(path) as f:
+        first_line = f.readline().strip()
+
+    if first_line.isdigit():
+        # Original format: skip the count line, header is line 2, whitespace-separated
+        df = pd.read_csv(path, sep=r"\s+", header=1, index_col=0)
+    else:
+        # Kaggle CSV format: header is line 1, comma-separated
+        df = pd.read_csv(path, sep=",", header=0, index_col=0)
+
     df = df.replace(-1, 0)  # CelebA encodes attributes as {-1, 1}; use {0, 1}
     df.index.name = "image_id"
     return df
@@ -87,6 +102,13 @@ def main():
     ap.add_argument("--min-images", type=int, default=30, help="min images per chosen identity")
     ap.add_argument("--max-images", type=int, default=45, help="cap, to keep classes balanced")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument(
+        "--fixed-ids", type=int, nargs="+", default=None,
+        help="Skip the diversity search and use this exact list of identity IDs "
+             "(e.g. IDs the group members individually claimed for the class-wide "
+             "identity-pooling task). Still computes real image counts and dominant "
+             "attributes for these IDs from the CelebA metadata.",
+    )
     args = ap.parse_args()
 
     identity_path = DATA_DIR / "identity_CelebA.txt"
@@ -99,22 +121,37 @@ def main():
 
     identities = load_identity_map(identity_path)
     attrs = load_attrs(attr_path)
-
     counts = Counter(identities["identity"])
-    eligible = [i for i, c in counts.items() if args.min_images <= c <= args.max_images]
-    if len(eligible) < args.n_identities:
-        # relax the cap if too few identities qualify
-        eligible = [i for i, c in counts.items() if c >= args.min_images]
-    print(f"Identities with >= {args.min_images} images: {len(eligible)}")
-
     merged = identities.merge(attrs, on="image_id")
-    per_id_attr_mean = (
-        merged[merged["identity"].isin(eligible)]
-        .groupby("identity")[DIVERSITY_ATTRS]
-        .mean()
-    )
 
-    chosen = greedy_diverse_subset(eligible, per_id_attr_mean, args.n_identities, args.seed)
+    if args.fixed_ids:
+        chosen = args.fixed_ids
+        args.n_identities = len(chosen)
+        missing = [cid for cid in chosen if cid not in counts]
+        if missing:
+            raise SystemExit(f"These identity IDs don't exist in identity_CelebA.txt: {missing}")
+        per_id_attr_mean = (
+            merged[merged["identity"].isin(chosen)]
+            .groupby("identity")[DIVERSITY_ATTRS]
+            .mean()
+        )
+        print(f"Using fixed identity list (skipping diversity search): {chosen}")
+        for cid in chosen:
+            print(f"  id={cid:>6}  n_images={counts[cid]:>3}")
+    else:
+        eligible = [i for i, c in counts.items() if args.min_images <= c <= args.max_images]
+        if len(eligible) < args.n_identities:
+            # relax the cap if too few identities qualify
+            eligible = [i for i, c in counts.items() if c >= args.min_images]
+        print(f"Identities with >= {args.min_images} images: {len(eligible)}")
+
+        per_id_attr_mean = (
+            merged[merged["identity"].isin(eligible)]
+            .groupby("identity")[DIVERSITY_ATTRS]
+            .mean()
+        )
+
+        chosen = greedy_diverse_subset(eligible, per_id_attr_mean, args.n_identities, args.seed)
 
     LOGS_DIR.mkdir(exist_ok=True)
     DOCS_DIR.mkdir(exist_ok=True)
@@ -141,25 +178,45 @@ def main():
     }
     (LOGS_DIR / "selected_identities.json").write_text(json.dumps(result, indent=2))
 
-    lines = [
-        "# Celebrity subset selection\n",
-        f"Selected **{args.n_identities}** identities from CelebA identities with "
-        f"between {args.min_images} and {args.max_images} images each, chosen to "
-        "maximize spread across gender, hair color, eyewear, and facial-hair attributes "
-        "(greedy max-min diversity over the attribute vectors in `list_attr_celeba.txt`).\n",
-        "| Identity ID | # Images | Dominant attributes |",
-        "|---|---|---|",
-    ]
-    for r in report_rows:
-        lines.append(f"| {r['identity_id']} | {r['num_images']} | {', '.join(r['dominant_attributes']) or '(none dominant)'} |")
-    lines.append(
-        "\n**Why these criteria:** sufficient per-identity images (>= "
-        f"{args.min_images}) keeps train/val/test splits viable at a small scale; "
-        "capping at the upper bound keeps classes roughly balanced so accuracy isn't "
-        "dominated by the largest class; maximizing attribute-space distance ensures "
-        "the model must learn genuinely discriminative facial features rather than "
-        "relying on a single correlated cue (e.g., only hair color)."
-    )
+    if args.fixed_ids:
+        lines = [
+            "# Celebrity subset selection\n",
+            f"Selected **{args.n_identities}** identities: the CelebA IDs each team "
+            "member individually claimed for the class-wide identity-pooling task, "
+            "rather than an independently diversity-selected set. Image counts and "
+            "dominant attributes below are computed directly from the CelebA "
+            "metadata for these specific IDs.\n",
+            "| Identity ID | # Images | Dominant attributes |",
+            "|---|---|---|",
+        ]
+        for r in report_rows:
+            lines.append(f"| {r['identity_id']} | {r['num_images']} | {', '.join(r['dominant_attributes']) or '(none dominant)'} |")
+        lines.append(
+            "\n**Why these IDs:** the group's Milestone 1 subset uses the identities "
+            "each member individually claimed for the class-wide identity-pooling "
+            "task, so the report reflects that mapping rather than a diversity-search "
+            "rationale. See `docs/proposal.md` for the identity-to-member mapping."
+        )
+    else:
+        lines = [
+            "# Celebrity subset selection\n",
+            f"Selected **{args.n_identities}** identities from CelebA identities with "
+            f"between {args.min_images} and {args.max_images} images each, chosen to "
+            "maximize spread across gender, hair color, eyewear, and facial-hair attributes "
+            "(greedy max-min diversity over the attribute vectors in `list_attr_celeba.txt`).\n",
+            "| Identity ID | # Images | Dominant attributes |",
+            "|---|---|---|",
+        ]
+        for r in report_rows:
+            lines.append(f"| {r['identity_id']} | {r['num_images']} | {', '.join(r['dominant_attributes']) or '(none dominant)'} |")
+        lines.append(
+            "\n**Why these criteria:** sufficient per-identity images (>= "
+            f"{args.min_images}) keeps train/val/test splits viable at a small scale; "
+            "capping at the upper bound keeps classes roughly balanced so accuracy isn't "
+            "dominated by the largest class; maximizing attribute-space distance ensures "
+            "the model must learn genuinely discriminative facial features rather than "
+            "relying on a single correlated cue (e.g., only hair color)."
+        )
     (DOCS_DIR / "identity_selection_report.md").write_text("\n".join(lines) + "\n")
 
     print("\nSelected identities:")

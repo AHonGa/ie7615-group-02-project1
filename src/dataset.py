@@ -65,12 +65,14 @@ def build_splits(identity_ids: List[int], val_frac=0.15, test_frac=0.15, seed=42
 
 def get_transforms(train: bool) -> transforms.Compose:
     if train:
+        # Lighter augmentation than a first pass: with only ~22 training images per
+        # identity, heavy color jitter + rotation added more variance than the custom
+        # CNN could learn through, contributing to it collapsing to one predicted class.
         return transforms.Compose(
             [
                 transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
                 transforms.RandomHorizontalFlip(p=0.5),
-                transforms.ColorJitter(brightness=0.15, contrast=0.15, saturation=0.1),
-                transforms.RandomRotation(degrees=8),
+                transforms.ColorJitter(brightness=0.08, contrast=0.08),
                 transforms.ToTensor(),
                 transforms.Normalize(NORM_MEAN, NORM_STD),
             ]

@@ -8,9 +8,10 @@ transfer-learning (ResNet18) baseline, compared and carried forward into Milesto
 
 | Name | Role |
 |---|---|
-| Adam (Faleh) Abdellah | _fill in_ |
-| _teammate_ | _fill in_ |
-| _teammate_ | _fill in_ |
+| Abdellah Faleh | Data pipeline, model training (Custom CNN + ResNet18), results write-up |
+| Jin-Woo Hong | GitHub repo setup & maintenance, reproducibility (README, environment) |
+| Samuel Tong | Evaluation & review (results, confusion matrix/metrics sanity-check, proposal review) |
+| Tristan Lyons | Milestone 2 planning (synthetic multi-celebrity dataset, YOLO annotations), Canvas submission coordination |
 
 ## Repository layout
 
@@ -79,17 +80,36 @@ Two supported compute setups:
 
 ## Celebrity subset
 
-_Filled in automatically by `src/select_identities.py` once run against the real dataset —
-see `logs/selected_identities.json` and `docs/proposal.md` for the documented rationale
-(image counts, visual-diversity criteria)._
+4 identities — the CelebA IDs each team member individually claimed for the
+class-wide identity-pooling task (23-25 images each). Selected with:
+
+```bash
+python src/select_identities.py --fixed-ids 3 7 1212 8335
+```
+
+see `logs/selected_identities.json` and `docs/proposal.md` for the full rationale.
+
+| Identity ID | # Images | Claimed by | Dominant attributes |
+|---|---|---|---|
+| 3 | 23-25 | Abdellah Faleh | _fill in after re-running select_identities.py_ |
+| 7 | 23-25 | _fill in_ | _fill in after re-running select_identities.py_ |
+| 1212 | 23-25 | Samuel Tong | _fill in after re-running select_identities.py_ |
+| 8335 | 23-25 | _fill in_ | _fill in after re-running select_identities.py_ |
 
 ## Best model
 
-_Filled in after Step 4 — see `docs/training_results.md`._
+**ResNet18 (fine-tuned)** — 87.5% test accuracy, vs. 50% for the custom CNN, on the
+updated 4-identity subset (3, 7, 1212, 8335 — the IDs individually claimed by team
+members). This subset is harder than the original one (3 of 4 identities are male,
+several share overlapping hair-color attributes), which is why both models scored
+lower than on the original 5-identity set (was 95%/85%) — see
+`docs/training_results.md` for the full comparison, confusion matrices, and
+justification. Carried forward checkpoint: `logs/resnet18_finetune_best.pt`.
 
 ## Status
 
-Milestone 1 scaffold complete. Notebooks are fully implemented and ready to run once
-CelebA is downloaded into `data/` (this generation environment has no network access to
-Google Drive or a PyTorch/TensorFlow install, so training was not executed here — run the
-notebooks locally or on Explorer and drop the resulting numbers/plots into `docs/`).
+Milestone 1 complete on the updated identity subset (3, 7, 1212, 8335): data
+pipeline rebuilt, both models retrained and evaluated, results documented in
+`docs/proposal.pdf` and `docs/training_results.pdf`. Remaining: fill in who claimed
+IDs 7 and 8335, GitHub repo setup with all collaborators, and final Canvas
+submission.
