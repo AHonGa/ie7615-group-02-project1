@@ -8,13 +8,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from sklearn.metrics import confusion_matrix, classification_report
 from torch.utils.data import DataLoader
-
-try:
-    from sklearn.metrics import confusion_matrix, classification_report
-except ModuleNotFoundError:  # pragma: no cover - user may not have the optional eval dependency installed
-    confusion_matrix = None
-    classification_report = None
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LOGS_DIR = REPO_ROOT / "logs"
@@ -139,11 +134,6 @@ def plot_curves(history: dict, run_name: str):
 
 @torch.no_grad()
 def evaluate(model, loader: DataLoader, device: torch.device, class_names=None):
-    if confusion_matrix is None or classification_report is None:
-        raise ModuleNotFoundError(
-            "scikit-learn is required for evaluation metrics. Install it with `pip install scikit-learn`."
-        )
-
     model.eval()
     model.to(device)
     all_preds, all_labels = [], []

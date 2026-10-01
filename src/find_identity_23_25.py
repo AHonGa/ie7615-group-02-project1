@@ -1,11 +1,20 @@
-"""Count CelebA images per identity before claiming an identity for the shared pool.
-
-Counts are verified against files present in data/img_align_celeba, not just metadata.
-The group's final selection is verified separately from data/shared_pool.
 """
-import csv
+Individual task (before group Milestone 1 work): find CelebA identity IDs that have
+between 23 and 25 images, so you can claim one unique ID on the class Excel sheet and
+upload just that identity's images to the shared Google Drive.
+
+Usage:
+    python src/find_identity_23_25.py
+
+Requires data/identity_CelebA.txt (already present from the earlier group setup).
+
+Output: prints eligible identity IDs sorted by count, and writes
+logs/eligible_identities_23_25.csv so you can browse the full list.
+"""
 from collections import Counter
 from pathlib import Path
+
+import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = REPO_ROOT / "data"
@@ -14,34 +23,15 @@ LOGS_DIR = REPO_ROOT / "logs"
 identity_path = DATA_DIR / "identity_CelebA.txt"
 if not identity_path.exists():
     raise SystemExit(f"Missing {identity_path} — make sure data/identity_CelebA.txt exists.")
-image_dir = DATA_DIR / "img_align_celeba"
-if not image_dir.is_dir():
-    raise SystemExit(f"Missing image directory {image_dir} — extract img_align_celeba.zip first.")
 
-identity_images = []
-with identity_path.open(encoding="utf-8") as identity_file:
-    for line in identity_file:
-        image_id, identity = line.split()
-        identity_images.append((image_id, int(identity)))
+df = pd.read_csv(identity_path, sep=r"\s+", header=None, names=["image_id", "identity"])
+counts = Counter(df["identity"])
 
-metadata_counts = Counter(identity for _, identity in identity_images)
-candidate_ids = {identity for identity, count in metadata_counts.items() if 23 <= count <= 25}
-available_counts = Counter(
-    identity
-    for image_id, identity in identity_images
-    if identity in candidate_ids and (image_dir / image_id).is_file()
-)
-eligible = sorted(
-    (identity, count)
-    for identity, count in available_counts.items()
-    if 23 <= count <= 25 and count == metadata_counts[identity]
-)
+eligible = sorted([(iid, c) for iid, c in counts.items() if 23 <= c <= 25], key=lambda x: x[0])
 
 LOGS_DIR.mkdir(exist_ok=True)
-with (LOGS_DIR / "eligible_identities_23_25.csv").open("w", newline="", encoding="utf-8") as output_file:
-    writer = csv.writer(output_file)
-    writer.writerow(["identity_id", "num_images"])
-    writer.writerows(eligible)
+out_df = pd.DataFrame(eligible, columns=["identity_id", "num_images"])
+out_df.to_csv(LOGS_DIR / "eligible_identities_23_25.csv", index=False)
 
 print(f"Found {len(eligible)} identities with 23-25 images (full list in "
       f"logs/eligible_identities_23_25.csv).\n")
