@@ -90,7 +90,19 @@ copies:
 This was verified programmatically (`split_manifest.csv` + an assertion in the
 notebook) — no base grid's images appear in more than one split.
 
-## 6. Reproducing this dataset
+## 6. Dataset QA and validation
+
+As a final review step, the detection dataset was checked for annotation
+consistency and split integrity. Sample synthetic images were rendered with
+their YOLO bounding boxes overlaid to confirm that the boxes remained aligned
+with each face after composition and augmentation.
+
+The train/validation/test split was also checked at the base-grid level so that
+augmented versions of the same synthetic grid do not appear in multiple splits.
+YOLO labels use normalized coordinates and the shared identity-to-class mapping
+stored with the dataset.
+
+## 7. Reproducing this dataset
 
 ```bash
 python src/extract_class_pool_images.py 3 7 1212 8335 2619 797 10002 5695 4422 2970 7007 2336 4428
@@ -103,7 +115,7 @@ performs all three steps with inline visualizations of sample annotated grids,
 the before/after augmentation comparison, and the split's leak-free
 verification.
 
-## 7. Dataset location and what's next
+## 8. Dataset location and what's next
 
 The finished dataset lives in `detection_dataset/` (see the repository layout
 in `README.md`): `train/`, `val/`, `test/` (each with `images/` and `labels/`),
