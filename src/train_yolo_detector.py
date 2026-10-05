@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DATASET = REPO_ROOT / "data" / "synthetic_face_frames_70_15_15" / "dataset.yaml"
+DEFAULT_DATASET = REPO_ROOT / "detection_dataset" / "dataset.yaml"
 
 
 def main():
