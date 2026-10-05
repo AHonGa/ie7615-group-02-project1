@@ -1,0 +1,18 @@
+train: train/images
+val: val/images
+test: test/images
+
+names:
+  0: identity_3
+  1: identity_7
+  2: identity_797
+  3: identity_1212
+  4: identity_2336
+  5: identity_2619
+  6: identity_2970
+  7: identity_4422
+  8: identity_4428
+  9: identity_5695
+  10: identity_7007
+  11: identity_8335
+  12: identity_10002
