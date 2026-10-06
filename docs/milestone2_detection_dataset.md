@@ -171,3 +171,47 @@ Regenerate them with:
 ```bash
 python src/evaluate_yolo_detector.py
 ```
+
+## 10. Validation inference-threshold sweep
+
+To measure practical threshold trade-offs without an exhaustive search, the
+same trained checkpoint and 640-pixel image size were evaluated on the
+validation split across four confidence thresholds and two NMS IoU thresholds.
+No weights were retrained, and the held-out test split was not used. Precision,
+recall, F1, and mAP values are from Ultralytics validation for each setting.
+Confidence is the minimum prediction score passed to validation; Ultralytics
+reports precision, recall, and F1 at the F1-optimal point among the remaining
+predictions, rather than at the confidence floor itself.
+
+| Confidence | NMS IoU | Precision | Recall |    F1 | mAP@0.5 | mAP@0.5:0.95 |
+| ---------: | ------: | --------: | -----: | ----: | ------: | -----------: |
+|      0.001 |    0.50 |     0.063 |  0.867 | 0.118 |   0.277 |        0.206 |
+|      0.001 |    0.70 |     0.046 |  0.867 | 0.088 |   0.273 |        0.207 |
+|       0.01 |    0.50 |     0.068 |  0.178 | 0.098 |   0.067 |        0.057 |
+|       0.01 |    0.70 |     0.066 |  0.178 | 0.097 |   0.067 |        0.057 |
+|       0.05 |    0.50 |     0.044 |  0.044 | 0.044 |   0.033 |        0.031 |
+|       0.05 |    0.70 |     0.044 |  0.044 | 0.044 |   0.033 |        0.031 |
+|       0.25 |    0.50 |     0.000 |  0.000 | 0.000 |   0.000 |        0.000 |
+|       0.25 |    0.70 |     0.000 |  0.000 | 0.000 |   0.000 |        0.000 |
+
+On this sample, the confidence threshold has the larger effect: raising it
+quickly removes true detections, while 0.001 gives the highest recall and
+mAP@0.5. At confidence 0.001, NMS IoU 0.50 modestly improves precision and
+mAP@0.5 over 0.70, with the same recall; the change in mAP@0.5:0.95 is small.
+These values are evidence of the trade-off, not a robust optimum: validation
+contains only five augmented images derived from one base grid. The comparison
+should be repeated on a larger, independently composed validation set before
+selecting deployment thresholds.
+
+Reproduce the sweep with:
+
+```bash
+python src/sweep_yolo_inference.py
+```
+
+The full table is saved to
+[`celeba_yolov8n_milestone2_sweep.csv`](../runs/detect/celeba_yolov8n_milestone2_sweep.csv).
+
+The curated prediction gallery, including correct detections, identity
+confusions, missed detections, and overlapping predicted boxes, is documented
+in [YOLOv8 Test Detection Gallery](test_detection_gallery.md).
