@@ -6,12 +6,12 @@ transfer-learning (ResNet18) baseline, compared and carried forward into Milesto
 
 ## Team
 
-| Name | Role |
-|---|---|
-| Abdellah Faleh | Data pipeline, model training (Custom CNN + ResNet18), results write-up |
-| Jin-Woo Hong | GitHub repo setup & maintenance, reproducibility (README, environment) |
-| Samuel Tong | Evaluation & review (results, confusion matrix/metrics sanity-check, proposal review) |
-| Tristan Lyons | Milestone 2 planning (synthetic multi-celebrity dataset, YOLO annotations), Canvas submission coordination |
+| Name           | Role                                                                                                       |
+| -------------- | ---------------------------------------------------------------------------------------------------------- |
+| Abdellah Faleh | Data pipeline, model training (Custom CNN + ResNet18), results write-up                                    |
+| Jin-Woo Hong   | GitHub repo setup & maintenance, reproducibility (README, environment)                                     |
+| Samuel Tong    | Evaluation & review (results, confusion matrix/metrics sanity-check, proposal review)                      |
+| Tristan Lyons  | Milestone 2 planning (synthetic multi-celebrity dataset, YOLO annotations), Canvas submission coordination |
 
 ## Repository layout
 
@@ -29,7 +29,9 @@ transfer-learning (ResNet18) baseline, compared and carried forward into Milesto
 │   ├── 01_data_preparation.ipynb        # subset selection + split + preprocessing
 │   ├── 02_custom_cnn_training.ipynb     # train the from-scratch CNN
 │   ├── 03_transfer_learning_resnet.ipynb# fine-tune pretrained ResNet18
-│   └── 04_model_evaluation_comparison.ipynb # test metrics, confusion matrix, comparison table
+│   ├── 04_model_evaluation_comparison.ipynb # test metrics, confusion matrix, comparison table
+│   ├── 05_detection_dataset_preparation.ipynb # synthetic detection dataset preparation
+│   └── 06_yolov8_live_demo.ipynb         # load the fine-tuned detector and try a test/uploaded image
 ├── logs/                      # saved loss/accuracy curves, comparison_table.csv, run logs
 └── docs/
     ├── proposal.md            # refreshed 1-page team proposal (export to PDF for submission)
@@ -57,6 +59,7 @@ pip install -r requirements.txt
 ```
 
 Two supported compute setups:
+
 - **Northeastern Research Computing Explorer (Open OnDemand, CPU-only)** — some
   compute nodes are older Xeons without AVX2, which can silently kill PyTorch/TF kernels
   during model-building ops. If a kernel dies with no traceback while building the model,
@@ -89,12 +92,12 @@ python src/select_identities.py --fixed-ids 3 7 1212 8335
 
 see `logs/selected_identities.json` and `docs/proposal.md` for the full rationale.
 
-| Identity ID | # Images | Claimed by | Dominant attributes |
-|---|---|---|---|
-| 3 | 23-25 | Abdellah Faleh | _fill in after re-running select_identities.py_ |
-| 7 | 23-25 | _fill in_ | _fill in after re-running select_identities.py_ |
-| 1212 | 23-25 | Samuel Tong | _fill in after re-running select_identities.py_ |
-| 8335 | 23-25 | _fill in_ | _fill in after re-running select_identities.py_ |
+| Identity ID | # Images | Claimed by     | Dominant attributes                             |
+| ----------- | -------- | -------------- | ----------------------------------------------- |
+| 3           | 23-25    | Abdellah Faleh | _fill in after re-running select_identities.py_ |
+| 7           | 23-25    | _fill in_      | _fill in after re-running select_identities.py_ |
+| 1212        | 23-25    | Samuel Tong    | _fill in after re-running select_identities.py_ |
+| 8335        | 23-25    | _fill in_      | _fill in after re-running select_identities.py_ |
 
 ## Best model
 

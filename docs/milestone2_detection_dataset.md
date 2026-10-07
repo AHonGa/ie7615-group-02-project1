@@ -11,16 +11,17 @@
   uses **9 unique identities drawn from the whole class pool** (not just our
   own team's 4 IDs), pulled from the class-wide identity spreadsheet:
 
-  | Group | Names | Celeb IDs |
-  |---|---|---|
-  | 1 | Dario Garza, Yosephine Tong, Murat Akca | 797, 10002, 5695 |
-  | 2 (ours) | Abdellah Faleh, Samuel Tong, Jin-Woo Hong, Tristan Lyons | 3, 1212, 7, 8335 |
-  | 3 | Julia Rasmussen, Rhea Paul, Mus Ab Irfan Yilmaz, Masato Kan | 4422, 2970, 7007, 2336 |
-  | 4 | David Fung | 4428 |
-  | 5 | Jiasong Zhang | 2619 |
+  | Group    | Names                                                       | Celeb IDs              |
+  | -------- | ----------------------------------------------------------- | ---------------------- |
+  | 1        | Dario Garza, Yosephine Tong, Murat Akca                     | 797, 10002, 5695       |
+  | 2 (ours) | Abdellah Faleh, Samuel Tong, Jin-Woo Hong, Tristan Lyons    | 3, 1212, 7, 8335       |
+  | 3        | Julia Rasmussen, Rhea Paul, Mus Ab Irfan Yilmaz, Masato Kan | 4422, 2970, 7007, 2336 |
+  | 4        | David Fung                                                  | 4428                   |
+  | 5        | Jiasong Zhang                                               | 2619                   |
 
   13 identities total, giving enough variety that our 6 required grids each
   draw a different 9-identity combination without repeating an arrangement.
+
 - **Deliverable count:** 6 grid images total — 2 included in this report, plus
   4 additional ones produced separately for the TA to aggregate across groups
   ahead of Milestone 3.
@@ -58,20 +59,19 @@ transform is bounded so faces stay inside the frame, and bounding boxes are
 mathematically recomputed to match each transform (not simply copied) — see
 `src/augment_and_split_detection_dataset.py`:
 
-| Augmentation | Parameters | Why |
-|---|---|---|
-| Horizontal flip | p = 0.5 | Faces are roughly left-right symmetric — free extra viewpoint diversity, label-safe (mirrors x-coordinates only) |
-| Bounded rotation | ±8° | Simulates a slightly tilted camera/photo; boxes recomputed as the axis-aligned bound of the rotated face corners |
+| Augmentation      | Parameters  | Why                                                                                                                |
+| ----------------- | ----------- | ------------------------------------------------------------------------------------------------------------------ |
+| Horizontal flip   | p = 0.5     | Faces are roughly left-right symmetric — free extra viewpoint diversity, label-safe (mirrors x-coordinates only)   |
+| Bounded rotation  | ±8°         | Simulates a slightly tilted camera/photo; boxes recomputed as the axis-aligned bound of the rotated face corners   |
 | Brightness jitter | 0.85x–1.15x | Simulates different lighting conditions across the shared backgrounds; pixel-only, does not affect box coordinates |
-| Contrast jitter | 0.85x–1.15x | Same rationale as brightness jitter |
-| Centered zoom | 0.95x–1.05x | Simulates minor camera distance/framing differences; boxes rescaled around the image center to match |
+| Contrast jitter   | 0.85x–1.15x | Same rationale as brightness jitter                                                                                |
+| Centered zoom     | 0.95x–1.05x | Simulates minor camera distance/framing differences; boxes rescaled around the image center to match               |
 
 Boxes are clipped to the 640x640 frame and dropped only if less than 10% of
 their original area would remain visible — this does not occur in practice at
 these bounded parameters for a centered 3x3 grid. We visually verified the
 augmentation preserves label alignment by rendering an original grid next to
-its augmented counterpart with boxes drawn on both (see the notebook, Section
-4) — every box correctly rotates/rescales along with its face.
+its augmented counterpart with boxes drawn on both (see the notebook, Section 4) — every box correctly rotates/rescales along with its face.
 
 ## 5. Train / validation / test split
 
@@ -82,10 +82,10 @@ validation, and 1 to test; each base grid contributes 1 original + 4 augmented
 copies:
 
 | Split | Base grids | Total images |
-|---|---|---|
-| train | 4 | 20 |
-| val | 1 | 5 |
-| test | 1 | 5 |
+| ----- | ---------- | ------------ |
+| train | 4          | 20           |
+| val   | 1          | 5            |
+| test  | 1          | 5            |
 
 This was verified programmatically (`split_manifest.csv` + an assertion in the
 notebook) — no base grid's images appear in more than one split.
@@ -123,3 +123,95 @@ in `README.md`): `train/`, `val/`, `test/` (each with `images/` and `labels/`),
 cross-team aggregation), and `manifest.csv` / `split_manifest.csv` for full
 provenance. This is the exact dataset Milestone 3 will fine-tune YOLOv8 on to
 report mAP@0.5, mAP@0.5:0.95, IoU, precision, and recall.
+
+## 9. YOLOv8 held-out test results
+
+The pretrained YOLOv8n checkpoint was fine-tuned for up to 100 epochs with
+early stopping (patience 20); training stopped at epoch 43. The best checkpoint
+was evaluated on the held-out test split (5 images, 45 faces). Ultralytics
+reports precision and recall at its F1-optimal operating point; mAP is computed
+over the standard IoU thresholds. Mean IoU below is the mean IoU of one-to-one,
+same-class matched detections with IoU >= 0.50, using the confidence threshold
+selected from validation (0.000 for this run).
+
+| Metric                                   | Test result |
+| ---------------------------------------- | ----------: |
+| Precision (Ultralytics F1-optimal point) |       0.047 |
+| Recall (Ultralytics F1-optimal point)    |       0.911 |
+| mAP@0.5                                  |       0.249 |
+| mAP@0.5:0.95                             |       0.189 |
+| Mean IoU of matched detections           |       0.787 |
+
+| Identity ID | Test faces | Precision | Recall | Mean IoU | AP@0.5 | AP@0.5:0.95 |
+| ----------: | ---------: | --------: | -----: | -------: | -----: | ----------: |
+|           7 |          5 |     0.057 |  0.800 |    0.861 |  0.243 |       0.191 |
+|         797 |          5 |     0.036 |  0.800 |    0.775 |  0.568 |       0.452 |
+|        2336 |          5 |     0.089 |  1.000 |    0.790 |  0.324 |       0.205 |
+|        2619 |          5 |     0.082 |  1.000 |      N/A |  0.392 |       0.354 |
+|        2970 |          5 |     0.024 |  1.000 |    0.800 |  0.138 |       0.086 |
+|        4422 |          5 |     0.044 |  1.000 |    0.727 |  0.108 |       0.074 |
+|        4428 |          5 |     0.053 |  1.000 |      N/A |  0.062 |       0.030 |
+|        5695 |          5 |     0.023 |  0.800 |    0.633 |  0.113 |       0.060 |
+|       10002 |          5 |     0.015 |  0.800 |    0.848 |  0.298 |       0.247 |
+
+N/A indicates that no detection for that identity met the 0.50 IoU match
+threshold at the validation-selected confidence, so a matched-box mean IoU is
+undefined. The low precision reflects many false positives, while the 5 test
+faces per identity and single held-out base grid make these results highly
+uncertain; they are a small-dataset training demonstration, not a reliable
+estimate of deployment performance.
+
+The complete machine-readable results, including TP/FP/FN and fixed-threshold
+precision/recall, are in
+[`test_detection_metrics.json`](../runs/detect/celeba_yolov8n_milestone2_test/test_detection_metrics.json)
+and
+[`test_per_class_metrics.csv`](../runs/detect/celeba_yolov8n_milestone2_test/test_per_class_metrics.csv).
+Regenerate them with:
+
+```bash
+python src/evaluate_yolo_detector.py
+```
+
+## 10. Validation inference-threshold sweep
+
+To measure practical threshold trade-offs without an exhaustive search, the
+same trained checkpoint and 640-pixel image size were evaluated on the
+validation split across four confidence thresholds and two NMS IoU thresholds.
+No weights were retrained, and the held-out test split was not used. Precision,
+recall, F1, and mAP values are from Ultralytics validation for each setting.
+Confidence is the minimum prediction score passed to validation; Ultralytics
+reports precision, recall, and F1 at the F1-optimal point among the remaining
+predictions, rather than at the confidence floor itself.
+
+| Confidence | NMS IoU | Precision | Recall |    F1 | mAP@0.5 | mAP@0.5:0.95 |
+| ---------: | ------: | --------: | -----: | ----: | ------: | -----------: |
+|      0.001 |    0.50 |     0.063 |  0.867 | 0.118 |   0.277 |        0.206 |
+|      0.001 |    0.70 |     0.046 |  0.867 | 0.088 |   0.273 |        0.207 |
+|       0.01 |    0.50 |     0.068 |  0.178 | 0.098 |   0.067 |        0.057 |
+|       0.01 |    0.70 |     0.066 |  0.178 | 0.097 |   0.067 |        0.057 |
+|       0.05 |    0.50 |     0.044 |  0.044 | 0.044 |   0.033 |        0.031 |
+|       0.05 |    0.70 |     0.044 |  0.044 | 0.044 |   0.033 |        0.031 |
+|       0.25 |    0.50 |     0.000 |  0.000 | 0.000 |   0.000 |        0.000 |
+|       0.25 |    0.70 |     0.000 |  0.000 | 0.000 |   0.000 |        0.000 |
+
+On this sample, the confidence threshold has the larger effect: raising it
+quickly removes true detections, while 0.001 gives the highest recall and
+mAP@0.5. At confidence 0.001, NMS IoU 0.50 modestly improves precision and
+mAP@0.5 over 0.70, with the same recall; the change in mAP@0.5:0.95 is small.
+These values are evidence of the trade-off, not a robust optimum: validation
+contains only five augmented images derived from one base grid. The comparison
+should be repeated on a larger, independently composed validation set before
+selecting deployment thresholds.
+
+Reproduce the sweep with:
+
+```bash
+python src/sweep_yolo_inference.py
+```
+
+The full table is saved to
+[`celeba_yolov8n_milestone2_sweep.csv`](../runs/detect/celeba_yolov8n_milestone2_sweep.csv).
+
+The curated prediction gallery, including correct detections, identity
+confusions, missed detections, and overlapping predicted boxes, is documented
+in [YOLOv8 Test Detection Gallery](test_detection_gallery.md).
