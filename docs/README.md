@@ -8,12 +8,12 @@ baseline, compared). Milestone 2 builds the synthetic multi-celebrity detection 
 
 ## Team
 
-| Name | Role |
-|---|---|
-| Abdellah Faleh | Data pipeline, model training (Custom CNN + ResNet18), results write-up |
-| Jin-Woo Hong | GitHub repo setup & maintenance, reproducibility (README, environment) |
-| Samuel Tong | Evaluation & review (results, confusion matrix/metrics sanity-check, proposal review) |
-| Tristan Lyons | Milestone 2 planning (synthetic multi-celebrity dataset, YOLO annotations), Canvas submission coordination |
+| Name           | Role                                                                                                       |
+| -------------- | ---------------------------------------------------------------------------------------------------------- |
+| Abdellah Faleh | Data pipeline, model training (Custom CNN + ResNet18), results write-up                                    |
+| Jin-Woo Hong   | GitHub repo setup & maintenance, reproducibility (README, environment)                                     |
+| Samuel Tong    | Evaluation & review (results, confusion matrix/metrics sanity-check, proposal review)                      |
+| Tristan Lyons  | Milestone 2 planning (synthetic multi-celebrity dataset, YOLO annotations), Canvas submission coordination |
 
 ## Repository layout
 
@@ -36,7 +36,8 @@ baseline, compared). Milestone 2 builds the synthetic multi-celebrity detection 
 │   ├── 02_custom_cnn_training.ipynb     # train the from-scratch CNN
 │   ├── 03_transfer_learning_resnet.ipynb# fine-tune pretrained ResNet18
 │   ├── 04_model_evaluation_comparison.ipynb # test metrics, confusion matrix, comparison table
-│   └── 05_detection_dataset_preparation.ipynb # Milestone 2: grid composition, augmentation, split
+│   ├── 05_detection_dataset_preparation.ipynb # Milestone 2: grid composition, augmentation, split
+│   └── 06_yolov8_live_demo.ipynb         # load the fine-tuned detector; choose a test or uploaded image
 ├── logs/                      # saved loss/accuracy curves, comparison_table.csv, run logs
 ├── detection_dataset/         # Milestone 2 output (not committed if large — see Milestone 2 section)
 │   ├── images/, labels/       # 6 base 3x3 grid images + YOLO label files
@@ -71,6 +72,7 @@ pip install -r requirements.txt
 ```
 
 Two supported compute setups:
+
 - **Northeastern Research Computing Explorer (Open OnDemand, CPU-only)** — some
   compute nodes are older Xeons without AVX2, which can silently kill PyTorch/TF kernels
   during model-building ops. If a kernel dies with no traceback while building the model,
@@ -104,12 +106,12 @@ python src/select_identities.py --fixed-ids 3 7 1212 8335
 
 see `logs/selected_identities.json` and `docs/proposal.md` for the full rationale.
 
-| Identity ID | # Images | Claimed by | Dominant attributes |
-|---|---|---|---|
-| 3 | 25 | Abdellah Faleh | Male, Wearing_Hat |
-| 7 | 24 | Jin-Woo Hong | Male, Black_Hair |
-| 1212 | 25 | Samuel Tong | Male, Black_Hair |
-| 8335 | 25 | Tristan Lyons | Male, Brown_Hair |
+| Identity ID | # Images | Claimed by     | Dominant attributes |
+| ----------- | -------- | -------------- | ------------------- |
+| 3           | 25       | Abdellah Faleh | Male, Wearing_Hat   |
+| 7           | 24       | Jin-Woo Hong   | Male, Black_Hair    |
+| 1212        | 25       | Samuel Tong    | Male, Black_Hair    |
+| 8335        | 25       | Tristan Lyons  | Male, Brown_Hair    |
 
 ## Best model
 
@@ -131,13 +133,13 @@ aggregation ahead of Milestone 3.
 
 **Class pool used** (13 identities from the shared class spreadsheet):
 
-| Group | Names | Celeb IDs |
-|---|---|---|
-| 1 | Dario Garza, Yosephine Tong, Murat Akca | 797, 10002, 5695 |
-| 2 (ours) | Abdellah Faleh, Samuel Tong, Jin-woo Hong, Tristan Lyons | 3, 1212, 7, 8335 |
-| 3 | Julia Rasmussen, Rhea Paul, Mus Ab Irfan Yilmaz, Masato Kan | 4422, 2970, 7007, 2336 |
-| 4 | David Fung | 4428 |
-| 5 | Jiasong Zhang | 2619 |
+| Group    | Names                                                       | Celeb IDs              |
+| -------- | ----------------------------------------------------------- | ---------------------- |
+| 1        | Dario Garza, Yosephine Tong, Murat Akca                     | 797, 10002, 5695       |
+| 2 (ours) | Abdellah Faleh, Samuel Tong, Jin-woo Hong, Tristan Lyons    | 3, 1212, 7, 8335       |
+| 3        | Julia Rasmussen, Rhea Paul, Mus Ab Irfan Yilmaz, Masato Kan | 4422, 2970, 7007, 2336 |
+| 4        | David Fung                                                  | 4428                   |
+| 5        | Jiasong Zhang                                               | 2619                   |
 
 **Grid composition:** each of the 6 grids places 9 unique identities (drawn
 from the 13 above) into a 3x3 layout, resized to 640x640 (YOLOv8's default
@@ -147,31 +149,33 @@ two grids repeat the same arrangement.
 **Augmentation strategy** (applied per grid to build the training set; boxes
 are mathematically recomputed for every transform, not just copied):
 
-| Augmentation | Parameters | Why |
-|---|---|---|
-| Horizontal flip | p = 0.5 | Faces are roughly left-right symmetric — free extra viewpoint diversity, label-safe |
-| Bounded rotation | ±8° | Simulates a slightly tilted photo; boxes recomputed from the rotated face corners |
-| Brightness jitter | 0.85x-1.15x | Simulates different lighting; pixel-only, doesn't affect boxes |
-| Contrast jitter | 0.85x-1.15x | Same rationale as brightness |
-| Centered zoom | 0.95x-1.05x | Simulates minor camera distance/framing differences; boxes rescaled to match |
+| Augmentation      | Parameters  | Why                                                                                 |
+| ----------------- | ----------- | ----------------------------------------------------------------------------------- |
+| Horizontal flip   | p = 0.5     | Faces are roughly left-right symmetric — free extra viewpoint diversity, label-safe |
+| Bounded rotation  | ±8°         | Simulates a slightly tilted photo; boxes recomputed from the rotated face corners   |
+| Brightness jitter | 0.85x-1.15x | Simulates different lighting; pixel-only, doesn't affect boxes                      |
+| Contrast jitter   | 0.85x-1.15x | Same rationale as brightness                                                        |
+| Centered zoom     | 0.95x-1.05x | Simulates minor camera distance/framing differences; boxes rescaled to match        |
 
-**Train/val/test split:** done at the *base grid* level (not per augmented
+**Train/val/test split:** done at the _base grid_ level (not per augmented
 copy) so every augmented version of a grid stays in the same split — this is
 what prevents image leakage. Default: 4 base grids → train, 1 → val, 1 → test;
 each grid contributes 1 original + 4 augmented copies:
 
 | Split | Base grids | Total images |
-|---|---|---|
-| train | 4 | 20 |
-| val | 1 | 5 |
-| test | 1 | 5 |
+| ----- | ---------- | ------------ |
+| train | 4          | 20           |
+| val   | 1          | 5            |
+| test  | 1          | 5            |
 
 **How to reproduce:**
+
 ```bash
 python src/extract_class_pool_images.py 3 7 1212 8335 2619 797 10002 5695 4422 2970 7007 2336 4428
 python src/build_synthetic_detection_dataset.py --ids 3 7 1212 8335 2619 797 10002 5695 4422 2970 7007 2336 4428 --n-grids 6
 python src/augment_and_split_detection_dataset.py --n-aug 4
 ```
+
 or run `notebooks/05_detection_dataset_preparation.ipynb` end-to-end, which
 performs all three steps with inline visualizations of sample annotated grids
 and the split's leak-free verification.
