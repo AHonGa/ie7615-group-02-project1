@@ -1,0 +1,12 @@
+{
+  "dataset": "Milestone 2 original (20/5/5 images)",
+  "epochs_run": 70,
+  "val mAP50": 0.3405897357760711,
+  "val mAP50-95": 0.23219360677485024,
+  "test mAP50": 0.23206764519931472,
+  "test mAP50-95": 0.14999335468786235,
+  "test precision": 0.4523258399212641,
+  "test recall": 0.4000000000000001,
+  "test mean IoU": 0.8728614125222799,
+  "faces correct": "3/45"
+}
