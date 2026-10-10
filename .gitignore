@@ -8,3 +8,7 @@ __pycache__/
 .DS_Store
 .vscode/settings.json
 **/labels.cache
+
+# Milestone 3 (YOLOv8): raw training folders from run_milestone3.py (curated copies live in results/milestone3/)
+runs/milestone3/
+milestone3_outputs.zip
