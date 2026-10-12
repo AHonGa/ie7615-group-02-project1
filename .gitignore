@@ -12,3 +12,7 @@ __pycache__/
 # Milestone 3 (YOLOv8): raw training folders from run_milestone3.py (curated copies live in results/milestone3/)
 runs/milestone3/
 milestone3_outputs.zip
+
+# Milestone 4: demo outputs and generated stress copies
+results/milestone4/demo/
+results/milestone4/stress_single/

@@ -6,6 +6,7 @@ pipeline built in milestones:
 - **Milestone 1** — single-face classification on a CelebA identity subset (custom CNN vs. fine-tuned ResNet18).
 - **Milestone 2** — synthetic multi-celebrity detection dataset (3x3 grids, YOLO labels, augmentation, splits).
 - **Milestone 3** — YOLOv8 transfer learning, detection metrics, hyperparameter sweep, gallery and live demo.
+- **Milestone 4** — integrated pipeline: YOLOv8 finds faces, the ResNet18 classifier names them; final report and presentation.
 
 ## Team
 
@@ -40,7 +41,10 @@ pipeline built in milestones:
 │   ├── build_m3_scaled_dataset.py  # M3: rebuild the dataset at scale with the M2 method
 │   ├── m3_detection.py        # M3: YOLOv8 training, evaluation, IoU matching, gallery
 │   ├── run_milestone3.py      # M3: full pipeline in one command + results document
-│   └── demo_detect.py         # M3: live demo (command line or Gradio app)
+│   ├── demo_detect.py         # M3: live demo (command line or Gradio app)
+│   ├── m4_pipeline.py         # M4: 13-identity classifier + integrated pipeline
+│   ├── run_milestone4.py      # M4: training, evaluation, final gallery in one command
+│   └── identify.py            # M4: live demo of the integrated pipeline
 ├── notebooks/
 │   ├── 01_data_preparation.ipynb        # M1: subset selection + split + preprocessing
 │   ├── 02_custom_cnn_training.ipynb     # M1: train the from-scratch CNN
@@ -48,7 +52,8 @@ pipeline built in milestones:
 │   ├── 04_model_evaluation_comparison.ipynb # M1: test metrics, confusion matrix, comparison
 │   ├── 05_detection_dataset_preparation.ipynb # M2: CelebA crops -> YOLO detection dataset
 │   ├── 06_yolov8_live_demo.ipynb            # M3: load a fine-tuned detector, try a test/uploaded image
-│   └── 06_yolov8_training_evaluation.ipynb  # M3: full pipeline (scaled dataset, sweep, results, gallery)
+│   ├── 06_yolov8_training_evaluation.ipynb  # M3: full pipeline (scaled dataset, sweep, results, gallery)
+│   └── 07_integrated_pipeline.ipynb         # M4: integrated detection + identification
 ├── logs/                      # M1: loss/accuracy curves, comparison_table.csv, run logs
 └── docs/
     ├── proposal.md, training_results.md      # M1 write-ups
@@ -142,7 +147,8 @@ and design choices: `docs/milestone2_detection_dataset.md`.
 
 - **Milestone 1** — complete and submitted.
 - **Milestone 2** — complete and submitted.
-- **Milestone 3** — complete: model trained, evaluated and documented (below). Due Oct 11.
+- **Milestone 3** — complete and submitted.
+- **Milestone 4** — integrated pipeline in the repo (below); final report and presentation due Oct 18.
 
 ## Milestone 3 — YOLOv8 transfer learning and evaluation
 
@@ -214,3 +220,46 @@ python src/demo_detect.py --app --share            # public link (needed on Cola
 
 Code: `src/m3_detection.py` (dataset config, training, evaluation, IoU matching, gallery),
 `src/run_milestone3.py` (pipeline steps, results document), `src/demo_detect.py` (demo).
+
+## Milestone 4 — integrated detection + identification pipeline
+
+```
+image -> YOLOv8 detector (Milestone 3) -> one box per face -> crop each face
+      -> ResNet18 classifier (Milestone 1 architecture, retrained on all 13 identities)
+      -> detector and classifier votes combined -> named boxes
+```
+
+The Milestone 1 classifier only knew Group 02's 4 identities, so `src/m4_pipeline.py` retrains the
+same ResNet18 (`src/models.py`) on all 13 class-pool identities, using the **same photo-level split**
+as the Milestone 3 detection dataset (`detection_dataset_m3/photo_split.csv`). No test photo is seen
+by either model during training, and both models use the same class ids. If the detector finds no
+face (for example a single full-frame portrait), the image is rescaled and searched again, and as a
+last resort the whole image is classified as one face.
+
+**Reproduce (CPU is enough, about 5–10 minutes):**
+
+```bash
+pip install -r requirements.txt
+python src/run_milestone4.py --smoke    # 1-minute check that everything runs
+python src/run_milestone4.py            # classifier training, pipeline evaluation, final gallery
+```
+
+or run `notebooks/07_integrated_pipeline.ipynb`.
+
+**Live demo** (uses the committed checkpoints):
+
+```bash
+python src/identify.py --source my_image.jpg   # or a folder of images
+python src/identify.py --app                   # web app at http://127.0.0.1:7860
+```
+
+Each face is listed with the final name, the detector's vote and the classifier's vote. Names with
+confidence below 0.5 are marked `?`.
+
+| Output | Location |
+|---|---|
+| 13-identity classifier checkpoint | `models/celeba_resnet18_13id.pt` |
+| Classifier curves, confusion matrix, per-identity accuracy | `results/milestone4/` |
+| Pipeline comparison (detector vs classifier vs fusion) | `results/milestone4/pipeline_modes_{val,test}.csv` |
+| Final gallery (≥20 correct, ≥5 misclassified single faces, ≥10 multi-face) | `results/milestone4/gallery/README.md` |
+| Summary tables for the report | `results/milestone4/results_tables.md`, `summary.json` |
