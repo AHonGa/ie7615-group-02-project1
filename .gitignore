@@ -16,3 +16,4 @@ milestone3_outputs.zip
 # Milestone 4: demo outputs and generated stress copies
 results/milestone4/demo/
 results/milestone4/stress_single/
+.gradio/
