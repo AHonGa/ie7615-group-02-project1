@@ -22,7 +22,7 @@ Our main results: the detector finds every face in the held-out test grids with 
 (mean IoU 0.99); the integrated pipeline names **89 of 108 test faces correctly (82.4%)**, up from 84
 (77.8%) for the detector alone, and removes all duplicate boxes. Most remaining errors are confusions
 between a small group of visually similar identities, which also raises the bias questions discussed
-in Section 7.
+in Section 8.
 
 ## 2. Dataset construction
 
@@ -67,7 +67,21 @@ takes about 10 minutes on a laptop CPU.
 lr 0.001, 640 px, batch 16, early-stopping patience 30) with one class per identity. Six configurations
 were trained (learning rate ×0.2 and ×5, image size 416, lighter online augmentation, and the larger
 YOLOv8s); the final model, **`aug_light`** (YOLOv8n without mosaic and with gentler colour and scale
-jitter), was selected on validation mAP only (`models/celeba_yolov8_best.pt`).
+jitter), was selected on validation mAP only (`models/celeba_yolov8_best.pt`). Table 1 summarizes the training
+settings of both models.
+
+| Setting | ResNet18 classifier | YOLOv8n detector |
+|---|---|---|
+| Pretrained on | ImageNet | COCO |
+| Input size | 128 × 128 face crop | 640 × 640 grid image |
+| Optimizer, learning rate | AdamW, 3·10⁻⁴, cosine schedule | AdamW, lr0 = 0.001 |
+| Batch size, epochs | 32, 30 (best epoch 5) | 16, up to 100 (patience 30) |
+| Loss | Cross-entropy, label smoothing 0.1 | YOLOv8 box + class + DFL loss |
+| Augmentation | Flip, ±5% shift, ±10% zoom, 5° rotation, colour jitter | No mosaic, scale 0.2, translate 0.05, light HSV jitter |
+| Training data | 219 face photos | 120 grids (1,080 faces) |
+| Training time | ~10 min on a laptop CPU | Full 6-run sweep ~30–45 min on a Colab T4 GPU |
+
+*Table 1. Training settings of the two fine-tuned models.*
 
 **Integrated pipeline (Milestone 4).** Figure 1 shows the system (`src/m4_pipeline.py`):
 
@@ -113,7 +127,21 @@ mode) were made **on the validation split only**; the test split was used once, 
 recall 0.759, mean IoU 0.993. The detector located all 108 test faces; 84 were given the right name.
 Learning rate was the most influential setting (×5 higher dropped validation mAP@0.5 from 0.90 to
 0.74), and lighter online augmentation was best (validation mAP@0.5:0.95 0.947 vs 0.896 for the
-baseline). On the original 30-image dataset the same configuration reached only 0.232. Figure 2 shows
+baseline). On the original 30-image dataset the same configuration reached only 0.232. Table 2 lists
+the full sweep.
+
+| Run | Model | lr0 | Image size | Val mAP@0.5 | Val mAP@0.5:0.95 | Test mAP@0.5 |
+|---|---|---|---|---|---|---|
+| baseline | YOLOv8n | 0.001 | 640 | 0.897 | 0.896 | 0.799 |
+| lr_low | YOLOv8n | 0.0002 | 640 | 0.864 | 0.863 | 0.861 |
+| lr_high | YOLOv8n | 0.005 | 640 | 0.737 | 0.737 | 0.687 |
+| imgsz_416 | YOLOv8n | 0.001 | 416 | 0.835 | 0.835 | 0.847 |
+| **aug_light (selected)** | YOLOv8n | 0.001 | 640 | **0.947** | **0.947** | **0.879** |
+| yolov8s_aug_light | YOLOv8s | 0.001 | 640 | 0.933 | 0.933 | 0.936 |
+
+*Table 2. Detector hyperparameter sweep (Milestone 3). The run was selected on validation mAP.*
+
+Figure 2 shows
 its training curves: box loss converges for training and validation alike, while the validation
 classification loss stays well above training, the first sign that naming, not finding, is the hard
 part.
@@ -123,13 +151,26 @@ part.
 **Classifier (single face photos).** The 13-identity ResNet18 reached **84% validation accuracy
 (42/50)** and **78% test accuracy (39/50)**. Training accuracy reached 100% by epoch 7 while
 validation accuracy levelled off around 80% (Figure 3, left), so the model overfits its ~17 photos
-per identity; the best validation checkpoint (epoch 5) is used. Eight of the 13 identities were
+per identity; the best validation checkpoint (epoch 5) is used. Seven of the 13 identities were
 classified perfectly on test, including three of our four (celeb_3, celeb_7, celeb_8335); the weakest
-were celeb_4422 (1/4), celeb_4428 (1/3), and celeb_1212 and celeb_7007 (2/4 each).
+were celeb_4422 (1/4), celeb_4428 (1/3), and celeb_1212 and celeb_7007 (2/4 each). Table 3 gives the
+full breakdown.
+
+| Identity | Test photos | Correct | Accuracy | | Identity | Test photos | Correct | Accuracy |
+|---|---|---|---|---|---|---|---|---|
+| celeb_3 (ours) | 4 | 4 | 100% | | celeb_4422 | 4 | 1 | 25% |
+| celeb_7 (ours) | 4 | 4 | 100% | | celeb_4428 | 3 | 1 | 33% |
+| celeb_797 | 4 | 4 | 100% | | celeb_5695 | 4 | 3 | 75% |
+| celeb_1212 (ours) | 4 | 2 | 50% | | celeb_7007 | 4 | 2 | 50% |
+| celeb_2336 | 4 | 4 | 100% | | celeb_8335 (ours) | 4 | 4 | 100% |
+| celeb_2619 | 4 | 4 | 100% | | celeb_10002 | 3 | 3 | 100% |
+| celeb_2970 | 4 | 3 | 75% | | **All 13** | **50** | **39** | **78%** |
+
+*Table 3. Classifier test accuracy per identity (single face photos).*
 
 ![Figure 3. Classifier learning curves (left) and test confusion matrix (right).](figures_m4/fig3_classifier.png)
 
-**Integrated pipeline (multi-face grids).** Table 1 compares the four settings. On both validation
+**Integrated pipeline (multi-face grids).** Table 4 compares the four settings. On both validation
 and test, fusion is best:
 
 | Setting | Val correct (of 108) | Test correct (of 108) | Test wrong name | Test extra boxes | Test mean IoU |
@@ -139,15 +180,26 @@ and test, fusion is best:
 | Detector boxes + classifier names | 89 (82.4%) | 80 (74.1%) | 28 | 0 | 0.991 |
 | **Detector + classifier votes combined (selected)** | **98 (90.7%)** | **89 (82.4%)** | **19** | **0** | **0.991** |
 
-*Table 1. Pipeline settings on validation and test grids. The setting was chosen on validation.*
+*Table 4. Pipeline settings on validation and test grids. The setting was chosen on validation.*
 
 Fusion names 5 more test faces correctly than the detector alone and removes all 8 duplicate boxes;
 no face was missed. In the gallery, 2 of the 12 test grids are fully correct and every grid has at
 least 6 of 9 faces right.
 
-**Robustness.** On the stress copies the pipeline named 6 of 18 faces in the crowded double grid
-(the Milestone 3 detector: 3 of 18), 10 of 18 in both the dark and the blurred copies (unchanged),
-and 2 of 18 when faces were shrunk to 45% (Milestone 3: 1 of 18). On the unseen image supplied by the
+**Robustness.** Table 5 shows the stress copies. Fusion helps most where the detector is weakest
+(crowded and small faces), but all four conditions remain far below the clean test grids.
+
+| Stress test (18 faces each) | What was changed | Milestone 3 detector | Fusion pipeline |
+|---|---|---|---|
+| Crowded | Two grids squeezed into one image | 3 of 18 | **6 of 18** |
+| Dark | Exposure cut to 30% | 10 of 18 | 10 of 18 |
+| Blurred | Heavy blur | 10 of 18 | 10 of 18 |
+| Small faces | Faces shrunk to 45% | 1 of 18 | **2 of 18** |
+| *Clean test grids, for reference* | — | *84 of 108 (78%)* | *89 of 108 (82%)* |
+
+*Table 5. Faces correctly identified on harder copies of test grids.*
+
+On the unseen image supplied by the
 TA (a 3 × 3 grid on a green background, a background never used in training), the detector found all
 9 faces and named all 9 correctly with confidence 0.98–1.00.
 
@@ -158,7 +210,39 @@ grids and 7 stress tests) with boxes coloured by outcome and captions.
 
 ![Figure 4. Gallery examples. Top: correctly classified test photos. Bottom: two misclassifications (each with a training photo of the predicted identity), a fully correct test grid, and the crowded stress test.](figures_m4/fig4_gallery.jpg)
 
-## 6. Analysis and limitations
+![Figure 5. All 20 correctly classified single faces in the gallery (true name on top, prediction and score below), covering every one of the 13 identities.](figures_m4/fig5_single_correct.jpg)
+
+## 6. Live demonstration
+
+The final evaluation tests two things on images the team has never seen: **single-object
+identification** (one face, one name) and **multi-object detection** (every face boxed and named).
+Both go through the same command, `python src/identify.py`, so nothing changes between the two cases.
+
+**Single face.** A close-up portrait is the hardest input for our detector, because it was trained on
+faces that fill one cell of a 640 px grid. The pipeline handles this with the fallbacks described in
+Section 3: if no face is found, the image is shrunk into a grid-cell-sized patch and searched again,
+and as a last resort the whole image is classified as one face. In each case the classifier still
+names the face, so a single portrait always returns exactly one name and score.
+
+**Several faces.** For a group image the detector draws one box per face (class-agnostic suppression),
+every box is cropped and classified, and the fused name is written on the box. Confident names get a
+green box; a name with a fused score below 0.5 gets an orange box and a "?", so the audience can see
+when the system is unsure.
+
+**What the demo shows.** The web app (`python src/identify.py --app`, or `--share` for a public link
+during the Zoom session) takes an uploaded image and returns the annotated image and a table with one
+row per face: the final name and score, the detector's vote, the classifier's vote, how the face was
+found (detector, rescaled image, or whole image), and the box coordinates. Showing both votes makes the fusion step visible: the audience can see
+the cases where the two models agree and the cases where one model corrects the other. The naming mode
+(detector, classifier or fusion) and the detector's confidence threshold can be changed on the page,
+which lets us show the comparison in Table 4 live.
+
+**Rehearsal.** Before the session we ran the demo on held-out test grids and shared the public link
+within the team, so the presenter does not need the code installed. In Milestone 3 the detector alone
+named all 9 faces in the TA's unseen test image correctly. The demo runs on a laptop CPU; no GPU is
+needed.
+
+## 7. Analysis and limitations
 
 **Finding faces is solved; naming them is the hard part.** Across every experiment the detector finds
 essentially every face with near-exact boxes (IoU ≈ 0.99), so mAP@0.5 and mAP@0.5:0.95 are almost
@@ -194,13 +278,13 @@ bars.
 select it; it is the first candidate for future work, along with training on smaller and overlapping
 faces and adding an open-set "unknown" class.
 
-## 7. Ethical considerations
+## 8. Ethical considerations
 
 Face recognition is one of the most ethically sensitive applications of computer vision, and even a
 small classroom system like ours shows the main risks clearly.
 
 **Bias and unequal accuracy.** Our system is far more accurate for some people than others: on test
-photos, accuracy ranges from 100% for eight identities to 25% for one. The errors are not random:
+photos, accuracy ranges from 100% for seven identities to 25% for one. The errors are not random:
 9 of the 11 classifier mistakes involve the same five women with similar hair. In our small set this
 reflects visual similarity and too few photos rather than a measured demographic effect, but it is
 exactly how demographic bias arises in real systems: when some groups are under-represented, or
@@ -242,7 +326,7 @@ it fails for, whether people agreed to be in it, and what happens when it is wro
 the average score. Small data made these questions concrete for us: with 17 photos per person our
 model was much better at some people than others.
 
-## 8. Conclusion
+## 9. Conclusion
 
 We built an end-to-end system that finds and names 13 celebrities in multi-face images. A synthetic
 grid dataset with a strict photo-level split made evaluation honest; a fine-tuned YOLOv8n solved
