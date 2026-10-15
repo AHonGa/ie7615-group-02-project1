@@ -306,8 +306,7 @@ of reporting one average score. Our tables for each person are a small step in t
 recognition models. The photos were collected from the internet. The dataset is allowed for
 non-commercial research, but being famous does not mean someone agrees to be identified automatically.
 A face is a permanent personal identifier: unlike a password, you cannot change it if it leaks. Many
-places now treat face data as sensitive data that needs clear consent, for example the GDPR in the EU
-and the BIPA law in Illinois. A real system would need consent, a clear purpose, limits on how long
+places now treat face data as sensitive data with strict rules, for example the GDPR in the EU and the BIPA law in Illinois. Depending on the place and the use, these rules can require consent or another legal basis. A real system would need consent where it applies, a clear purpose, limits on how long
 images and face data are kept, and a way for people to opt out. In this project we used the data only
 for coursework, we did not collect any new photos of people, and we did not build a database of faces.
 
