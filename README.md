@@ -256,6 +256,21 @@ python src/identify.py --app                   # web app at http://127.0.0.1:786
 Each face is listed with the final name, the detector's vote and the classifier's vote. Names with
 confidence below 0.5 are marked `?`.
 
+## Presentation readiness
+
+The Milestone 4 integrated pipeline was tested in Google Colab using the Gradio
+web app:
+
+```bash
+python src/identify.py --app --share
+```
+
+The demo was tested using the unseen 3x3 test image provided by the TA.
+
+During our test, the integrated pipeline returned all 9 faces with bounding boxes
+and identity predictions. Detector confidence was approximately 0.98-1.00 across
+the 9 faces, and no duplicate boxes were shown.
+
 | Output | Location |
 |---|---|
 | 13-identity classifier checkpoint | `models/celeba_resnet18_13id.pt` |
