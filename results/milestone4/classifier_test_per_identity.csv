@@ -1,0 +1,14 @@
+identity,photos,correct,accuracy
+celeb_3 (ours),4,4,1.0
+celeb_7 (ours),4,4,1.0
+celeb_797,4,4,1.0
+celeb_1212 (ours),4,2,0.5
+celeb_2336,4,4,1.0
+celeb_2619,4,4,1.0
+celeb_2970,4,3,0.75
+celeb_4422,4,1,0.25
+celeb_4428,3,1,0.3333333333333333
+celeb_5695,4,3,0.75
+celeb_7007,4,2,0.5
+celeb_8335 (ours),4,4,1.0
+celeb_10002,3,3,1.0

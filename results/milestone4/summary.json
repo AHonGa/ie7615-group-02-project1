@@ -1,0 +1,26 @@
+{
+  "classifier": {
+    "best_epoch": 5,
+    "val_accuracy": 0.84,
+    "test_accuracy": 0.78,
+    "test_correct": 39,
+    "test_photos": 50
+  },
+  "pipeline": {
+    "chosen_mode": "fusion",
+    "test_correct": 89,
+    "test_faces": 108,
+    "test_accuracy": 0.8240740740740741,
+    "test_extra_boxes": 0,
+    "test_mean_iou": 0.9911700786678362,
+    "milestone3_detector_test_correct": 84
+  },
+  "gallery": {
+    "single_correct": 20,
+    "single_misclassified": 11,
+    "multi_face": 19,
+    "misclassified_sources": {
+      "test photo": 11
+    }
+  }
+}
