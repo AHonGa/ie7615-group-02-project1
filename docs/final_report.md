@@ -356,3 +356,13 @@ presentation.
 - G. Jocher, A. Chaurasia, J. Qiu. *Ultralytics YOLOv8*, 2023. https://github.com/ultralytics/ultralytics
 - P. Grother, M. Ngan, K. Hanaoka. *Face Recognition Vendor Test Part 3: Demographic Effects.* NIST IR 8280, 2019.
 - J. Buolamwini, T. Gebru. *Gender Shades: Intersectional Accuracy Disparities in Commercial Gender Classification.* FAT* 2018.
+
+## 10. Live Demo Images
+
+These images are the results of our live demo. Each face is assigned a bounding box, a predicted CelebA ID, and a confidence score. The model guessed every face with high confidence. The lowest confidence was 0.68.
+
+![First demo image containing a single face which the model identified as celeb_4422 with 0.97 confidence.](figures_m4/demo_single_face_1.png)
+
+![Second demo image containing a single face which the model identified as celeb_10002 with 1.00 confidence.](figures_m4/demo_single_face_2.png)
+
+![Third demo image containing a 3x3 grid of faces which the model identified as 9 different celebs with confidences ranging from 0.68 to 1.00.](figures_m4/demo_grid.png)

@@ -54,8 +54,8 @@
 ### Presentation
 - [x] Slides ready (15 slides), every member presents a part
 - [x] Speaker scripts and Q&A study sheet shared with the team
-- [ ] Demo link created before 8:00 PM on Oct 19 and shared with the presenter
-- [ ] All 4 members join the meeting on time
+- [X] Demo link created before 8:00 PM on Oct 19 and shared with the presenter
+- [X] All 4 members join the meeting on time
 
 ### Repository
 - [x] README has the Milestone 4 section and presentation-readiness notes
